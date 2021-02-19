@@ -1,0 +1,25 @@
+version: "2.4"
+services:
+  oracle:
+    image: store/oracle/database-enterprise:12.2.0.1
+    # environment:
+    #   DB_BUNDLE: basic
+    #   DB_DOMAIN: local domain
+    #   DB_MEMORY: 4g
+    #   DB_PASSWD: 2FederateM0re!
+    #   DB_PDB: ORCLPDB1
+    #   DB_SID: ORCLCDB
+    #   ORACLE_CHARACTERSET: AL32UTF8
+    #   ORACLE_PWD: 2FederateM0re!
+    # env_file:
+    #   # Configuration file created when setup.sh (Getting-started project root directory) is first run to source
+    #   # devops user/key details for evaluation licenses and for docker image/git tags
+    #   - ${HOME}/.pingidentity/devops
+    # cpus: 0.5
+    # ports:
+    #   - "443:443"
+    #   - "9000:9000"
+    # networks:
+    #   - pingnet-dmz
+    volumes:
+      - ./orcl:/ORCL

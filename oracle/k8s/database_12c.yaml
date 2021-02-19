@@ -1,0 +1,267 @@
+# ngidentity/pingidentity-devops-getting-started/20-kubernetes/03-replicated-pingdirectory
+# apiVersion: v1
+# data:
+#   K8S_STATEFUL_SET_NAME: pingdirectory
+#   K8S_STATEFUL_SET_SERVICE_NAME: pingdirectory-cluster
+#   MAKELDIF_USERS: "1000"
+#   ORCHESTRATION_TYPE: KUBERNETES
+#   PING_IDENTITY_ACCEPT_EULA: "YES"
+#   SERVER_PROFILE_PATH: baseline/pingdirectory
+#   SERVER_PROFILE_URL: https://www.github.com/pingidentity/pingidentity-server-profiles.git
+#   TAIL_LOG_FILES: '""'
+# kind: ConfigMap
+# metadata:
+#   labels:
+#     role: pingdirectory
+#   name: pingdirectory-environment-variables
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#     role: pingdataconsole
+#   name: pingdataconsole
+# spec:
+#   ports:
+#   - name: https
+#     port: 8443
+#   selector:
+#     role: pingdataconsole
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#     role: pingdirectory
+#   name: pingdirectory
+# spec:
+#   ports:
+#   - name: ldaps
+#     port: 636
+#   - name: https
+#     port: 443
+#   - name: ldap
+#     port: 389
+#   selector:
+#     role: pingdirectory
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   annotations:
+#     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+#   labels:
+#     role: pingdirectory
+#   name: pingdirectory-cluster
+# spec:
+#   clusterIP: None
+#   ports:
+#   - name: ldaps
+#     port: 636
+#   publishNotReadyAddresses: true
+#   selector:
+#     role: pingdirectory
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   labels:
+#     role: pingdataconsole
+#   name: pingdataconsole
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       role: pingdataconsole
+#   template:
+#     metadata:
+#       labels:
+#         role: pingdataconsole
+#       name: pingdataconsole
+#     spec:
+#       containers:
+#       - image: pingidentity/pingdataconsole:edge
+#         name: pingdataconsole
+#         ports:
+#         - containerPort: 8443
+#         resources:
+#           limits:
+#             cpu: "1"
+#             memory: 1.5Gi
+#           requests:
+#             cpu: "1"
+#             memory: 1.5Gi
+# ---
+# apiVersion: apps/v1
+# kind: StatefulSet
+# metadata:
+#   labels:
+#     role: pingdirectory
+#   name: pingdirectory
+# spec:
+#   replicas: 2
+#   selector:
+#     matchLabels:
+#       role: pingdirectory
+#   serviceName: pingdirectory-cluster
+#   template:
+#     metadata:
+#       labels:
+#         role: pingdirectory
+#       name: pingdirectory
+#     spec:
+#       containers:
+#       - envFrom:
+#         - configMapRef:
+#             name: pingdirectory-environment-variables
+#         - secretRef:
+#             name: devops-secret
+#             optional: true
+#         image: pingidentity/pingdirectory:edge
+#         lifecycle:
+#           preStop:
+#             exec:
+#               command:
+#               - /bin/sh
+#               - -c
+#               - /preStop.sh
+#         livenessProbe:
+#           exec:
+#             command:
+#             - /bin/sh
+#             - -c
+#             - /opt/liveness.sh
+#           initialDelaySeconds: 300
+#           periodSeconds: 30
+#         name: pingdirectory
+#         ports:
+#         - containerPort: 636
+#         - containerPort: 443
+#         - containerPort: 389
+#         readinessProbe:
+#           exec:
+#             command:
+#             - /bin/sh
+#             - -c
+#             - /opt/liveness.sh
+#         resources:
+#           limits:
+#             cpu: "2"
+#             memory: 2Gi
+#           requests:
+#             cpu: "2"
+#             memory: 2Gi
+#         volumeMounts:
+#         - mountPath: /opt/out
+#           name: out-dir
+#       terminationGracePeriodSeconds: 300
+#       volumes:
+#       - name: out-dir
+#         persistentVolumeClaim:
+#           claimName: out-dir
+#   volumeClaimTemplates:
+#   - metadata:
+#       name: out-dir
+#     spec:
+#       accessModes:
+#       - ReadWriteOnce
+#       resources:
+#         requests:
+#           storage: 5Gi
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oracle
+  # namespace: oracle-namespace
+  labels:
+    app: oracle
+    version: 12.1.0.2
+spec:
+  serviceName: oracle
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle
+      version: 12.1.0.2
+  template:
+    metadata:
+      name: oracle
+      labels:
+        app: oracle
+        version: 12.1.0.2
+    spec:
+      # securityContext:
+      #   runAsUser: 54321
+      #   runAsGroup: 54321
+      #   fsGroup: 54321
+      # add your volume mount for your persistent storage here
+      containers:
+      - name: oracle
+        # command:
+        # - /home/oracle/setup/dockerInit.sh
+        image: store/oracle/database-enterprise:12.2.0.1 
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            memory: 8Gi
+        ports:
+        - containerPort: 1521
+          hostPort: 1521
+        # envFrom:
+        #   - configMapRef:
+        #       name: oradb
+        volumeMounts:
+          # - mountPath: /dev/shm
+          #   name: dshm
+          # add your persistent storage for DB files here
+          - mountPath: /ORCL
+            name: oracle-pvc
+      imagePullSecrets:
+      - name: regsecret
+      volumes:
+      # - name: dshm
+      #   emptyDir: {}
+          # medium: Memory
+      - name: oracle-pvc
+        persistentVolumeClaim:
+          claimName: oracle-pvc
+#       volumes:
+#       - name: out-dir
+#         persistentVolumeClaim:
+#           claimName: out-dir
+#   volumeClaimTemplates:
+#   - metadata:
+#       name: out-dir
+#     spec:
+#       accessModes:
+#       - ReadWriteOnce
+#       resources:
+#         requests:
+#           storage: 5Gi
+  volumeClaimTemplates:
+  - metadata:
+      name: oracle-pvc
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle
+  # namespace: oracle-namespace
+spec:
+  selector:
+    app: oracle
+    version: 12.1.0.2
+  # type: NodePort
+  ports:
+  - protocol: TCP
+    port: 1521
+    targetPort: 1521

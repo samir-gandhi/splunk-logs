@@ -1,0 +1,94 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: splunk-config
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp2
+  resources:
+    requests:
+      storage: 10Gi
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: splunk-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: gp2
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    role: splunk
+  name: splunk
+spec:
+  ports:
+  - name: http
+    port: 8000
+  - name: https
+    port: 8088
+  - name: receiver
+    port: 9997
+  selector:
+    role: splunk
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    role: splunk
+  name: splunk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      role: splunk
+  template:
+    metadata:
+      labels:
+        role: splunk
+      name: splunk
+    spec:
+      volumes:
+        - name: splunk-config
+          persistentVolumeClaim:
+            claimName: splunk-config
+        - name: splunk-data
+          persistentVolumeClaim:
+            claimName: splunk-data
+      containers:
+      - env:
+        - name: SPLUNK_PASSWORD
+          value: 2FederateM0re!
+        - name: SPLUNK_START_ARGS
+          value: --accept-license
+        name: splunk
+        image: splunk/splunk:latest
+        ports:
+          - containerPort: 8000
+            name: "http"
+          - containerPort: 8088
+            name: "https"
+          - containerPort: 9997
+            name: "receiver"
+        volumeMounts:
+          - mountPath: /opt/splunk/etc
+            name: splunk-config
+          - mountPath: /opt/splunk/var
+            name: splunk-data
+        resources:
+          limits:
+            cpu: "3"
+            memory: 3.5Gi
+          requests:
+            cpu: "3"
+            memory: 3.5Gi

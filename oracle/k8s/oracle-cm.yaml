@@ -1,0 +1,14 @@
+apiVersion: v1
+data:
+  DB_BUNDLE: basic
+  DB_DOMAIN: local domain
+  DB_MEMORY: 4g
+  DB_PASSWD: 2FederateM0re!
+  DB_PDB: ORCLPDB1
+  DB_SID: ORCLCDB
+  ORACLE_CHARACTERSET: AL32UTF8
+  ORACLE_PWD: 2FederateM0re!
+kind: ConfigMap
+metadata:
+  name: oradb
+  namespace: ping-cloud-devops-eks-adamgipson
