@@ -1,0 +1,112 @@
+# kind: PersistentVolumeClaim
+# apiVersion: v1
+# metadata:
+#   name: splunk-config
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   storageClassName: gp2
+#   resources:
+#     requests:
+#       storage: 10Gi
+# ---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: splunk-config
+data:
+  outputs.conf: |-
+    [indexAndForward]
+    index = false
+
+    # [tcpout]
+    # defaultGroup = splunk-uat
+    # forwardedindex.filter.disable = true
+    # indexAndForward = false
+
+    # [tcpout:splunk-uat]
+    # server = splunk:9997
+    # # Splunk indexer IP and Port
+    # useACK = true
+    # autoLB = true
+    
+    [httpout]
+    httpEventCollectorToken = 7af0b4f5-2703-4742-b5fc-5cd8d4ab5425
+    uri = https://splunk:8088
+
+  inputs.conf: |-
+    [monitor:///var/log/*.log]
+    # Where data is read from
+    disabled = false
+    sourcetype = log
+    index = pinglogs  # This index should already be created on the splunk environment
+    # watch all files in <path>
+    # [monitor:///var/log/containers/*.log]
+    # # extract `host` from the first group in the filename
+    # host_regex = /var/log/containers/(.*)_.*_.*\.log
+    # # set source type to Kubernetes
+    # sourcetype = kubernetes
+
+---
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: splunkforwarder
+  labels:
+    app: splunkforwarder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: splunkforwarder
+  template:
+    metadata:
+      labels:
+        app: splunkforwarder
+    spec:
+      initContainers:
+       - name: volume-permissions
+         image: busybox
+         imagePullPolicy: IfNotPresent
+         command: ['sh', '-c', 'cp /configs/* /opt/splunkforwarder/etc/system/local/']
+         volumeMounts:
+         - mountPath: /configs
+           name: splunk-config
+         - name: confs
+           mountPath: /opt/splunkforwarder/etc/system/local
+      containers:
+       - name: splunk-uf
+         image: splunk/universalforwarder:latest
+         imagePullPolicy: IfNotPresent
+         env:
+         - name: SPLUNK_START_ARGS
+           value: --accept-license
+         - name: SPLUNK_PASSWORD
+           value: 2FederateM0re!
+         - name: SPLUNK_USER
+           value: splunk
+         - name: SPLUNK_CMD
+           value: add monitor /var/log/
+         volumeMounts:
+         - name: pingfederate-logs
+           mountPath: /var/log/pingfederate
+        #  - name: pingaccess-logs
+        #    mountPath: /var/log/pingaccess
+         - name: confs
+           mountPath: /opt/splunkforwarder/etc/system/local
+      volumes:
+      - name: pingfederate-logs
+        persistentVolumeClaim:
+          claimName: logs-dir-samir-pingfederate-engine-0
+      # - name: pingaccess-logs
+      #   persistentVolumeClaim:
+      #     claimName: logs-dir-samir-pingaccess-engine-0
+      - name: confs
+        emptyDir: {}
+      - name: splunk-config
+        configMap:
+          name: splunk-config
+          defaultMode: 0777

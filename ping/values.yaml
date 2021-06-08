@@ -1,0 +1,111 @@
+## PA, PF, PD - tested with helm chart 0.4.1
+
+global:
+  image:
+    tag: "edge"
+  ingress:
+    enabled: true
+    addReleaseNameToHost: prepend
+    defaultDomain: ping-devops.com
+    defaultTlsSecret:
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+      kubernetes.io/ingress.class: "nginx-public"
+  container:
+    replicaCount: 1
+    # resources:
+    #   requests:
+    #     cpu: 500m
+    #     memory: 500Mi
+    #   limits:
+    #     cpu: 1.5
+    #     memory: 2Gi
+
+pingaccess-admin:
+  enabled: true
+  privateCert:
+    generate: true
+  envs:
+    SERVER_PROFILE_BASELINE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
+    SERVER_PROFILE_BASELINE_PATH: baseline/pingaccess
+    SERVER_PROFILE_PARENT: BASELINE
+    SERVER_PROFILE_URL: https://github.com/samir-gandhi/splunk-logs
+    SERVER_PROFILE_PATH: log-profile/pingaccess
+    TAIL_LOG_FILES: "/opt/logs/pingaccess.log /opt/logs/pingaccess_engine_audit_splunk.log /opt/logs/pingaccess_api_audit_splunk.log /opt/logs/pingaccess_agent_audit_splunk.log"
+  container:
+    waitFor:
+      pingfederate-engine:
+        service: https
+
+pingaccess-engine:
+  enabled: true
+  envs:
+    SERVER_PROFILE_BASELINE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
+    SERVER_PROFILE_BASELINE_PATH: baseline/pingaccess
+    SERVER_PROFILE_PARENT: BASELINE
+    SERVER_PROFILE_URL: https://github.com/samir-gandhi/splunk-logs
+    SERVER_PROFILE_PATH: log-profile/pingaccess
+    TAIL_LOG_FILES: "/opt/logs/pingaccess.log /opt/logs/pingaccess_engine_audit_splunk.log /opt/logs/pingaccess_api_audit_splunk.log /opt/logs/pingaccess_agent_audit_splunk.log"
+  workload:
+    type: StatefulSet
+    statefulSet:
+      persistentvolume:
+        volumes:
+          logs-dir:
+            mountPath: /opt/logs
+            persistentVolumeClaim:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+  clustering:
+    autoscaling:
+      enabled: false
+
+
+pingdataconsole:
+  enabled: true
+
+pingdirectory:
+  container:
+    replicaCount: 1
+  enabled: true
+
+
+pingfederate-admin:
+  enabled: true
+  envs:
+    SERVER_PROFILE_BASELINE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
+    SERVER_PROFILE_BASELINE_PATH: baseline/pingfederate
+    SERVER_PROFILE_PARENT: BASELINE
+    SERVER_PROFILE_URL: https://github.com/samir-gandhi/splunk-logs
+    SERVER_PROFILE_PATH: log-profile/pingfederate
+    TAIL_LOG_FILES: "/opt/logs/server.log /opt/logs/splunk-audit.log"
+
+
+pingfederate-engine:
+  enabled: true
+  envs:
+    SERVER_PROFILE_BASELINE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
+    SERVER_PROFILE_BASELINE_PATH: baseline/pingfederate
+    SERVER_PROFILE_PARENT: BASELINE
+    SERVER_PROFILE_URL: https://github.com/samir-gandhi/splunk-logs
+    SERVER_PROFILE_PATH: log-profile/pingfederate
+    TAIL_LOG_FILES: "/opt/logs/server.log /opt/logs/splunk-audit.log"
+  workload:
+    type: StatefulSet
+    statefulSet:
+      persistentvolume:
+        volumes:
+         logs-dir:
+            mountPath: /opt/logs
+            persistentVolumeClaim:
+              accessModes:
+              - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 10Gi
+  clustering:
+    autoscaling:
+      enabled: false
